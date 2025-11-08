@@ -1,6 +1,6 @@
 {
   "name": "pairdrop",
-  "version": "1.1.0",
+  "version": "1.2.0",
   "description": "PairDrop | Transfer Files Cross-Platform. No Setup, No Signup.",
   "main": "main.js",
   "scripts": {
@@ -43,7 +43,9 @@
       "icons/icon.png"
     ],
     "linux": {
-      "target": ["deb"],
+      "target": [
+        "deb"
+      ],
       "category": "Network, Utility",
       "icon": "icons",
       "maintainer": "StormGamesStudios <meliodas.aitor@gmail.com>",
@@ -51,7 +53,9 @@
       "description": "Aplicación ligera basada en Electron que abre PairDrop APP y guarda tus datos de sesión localmente."
     },
     "win": {
-      "target": ["nsis"],
+      "target": [
+        "nsis"
+      ],
       "icon": "icons/icon.png",
       "artifactName": "PairDrop-APP-Setup-${version}.exe"
     },
@@ -62,5 +66,8 @@
       "createStartMenuShortcut": true,
       "shortcutName": "PairDrop APP"
     }
+  },
+  "dependencies": {
+    "electron-store": "^11.0.2"
   }
 }
