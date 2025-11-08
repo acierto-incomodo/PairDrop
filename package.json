@@ -1,0 +1,66 @@
+{
+  "name": "pairdrop",
+  "version": "1.0.0",
+  "description": "PairDrop | Transfer Files Cross-Platform. No Setup, No Signup.",
+  "main": "main.js",
+  "scripts": {
+    "start": "electron .",
+    "dist:win": "electron-builder --win",
+    "dist:linux": "electron-builder --linux deb",
+    "dist": "npm run dist:win && npm run dist:linux"
+  },
+  "keywords": [],
+  "author": "StormGamesStudios",
+  "homepage": "https://github.com/acierto-incomodo/PairDrop",
+  "license": "ISC",
+  "type": "commonjs",
+  "devDependencies": {
+    "electron": "^39.1.1",
+    "electron-builder": "^26.0.12"
+  },
+  "build": {
+    "appId": "com.stormgamesstudios.pairdrop",
+    "productName": "PairDrop APP",
+    "directories": {
+      "output": "release"
+    },
+    "extraResources": [
+      {
+        "from": "icons/icon.png",
+        "to": "icons/icon.png",
+        "filter": "**/*"
+      },
+      {
+        "from": "icons/icon.png",
+        "to": "icon.png",
+        "filter": "**/*"
+      }
+    ],
+    "files": [
+      "main.js",
+      "preload.js",
+      "package.json",
+      "icons/icon.png"
+    ],
+    "linux": {
+      "target": ["deb"],
+      "category": "Network, Utility",
+      "icon": "icons",
+      "maintainer": "StormGamesStudios <meliodas.aitor@gmail.com>",
+      "synopsis": "Cliente no oficial de PairDrop APP",
+      "description": "Aplicación ligera basada en Electron que abre PairDrop APP y guarda tus datos de sesión localmente."
+    },
+    "win": {
+      "target": ["nsis"],
+      "icon": "icons/icon.png",
+      "artifactName": "PairDrop-APP-Setup-${version}.exe"
+    },
+    "nsis": {
+      "oneClick": false,
+      "allowToChangeInstallationDirectory": true,
+      "createDesktopShortcut": true,
+      "createStartMenuShortcut": true,
+      "shortcutName": "PairDrop APP"
+    }
+  }
+}
