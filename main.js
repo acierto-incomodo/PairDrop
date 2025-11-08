@@ -1,6 +1,6 @@
 const { app, BrowserWindow, Tray, Menu, shell } = require('electron');
 const path = require('path');
-const Store = require('electron-store');
+const Store = require('electron-store').default;
 const { version } = require('./package.json');
 
 const store = new Store();
