@@ -1,6 +1,6 @@
 {
   "name": "pairdrop",
-  "version": "1.0.2",
+  "version": "1.0.4",
   "description": "PairDrop | Transfer Files Cross-Platform. No Setup, No Signup.",
   "main": "main.js",
   "scripts": {
@@ -54,6 +54,7 @@
       "main.js",
       "preload.js",
       "package.json",
+      "updater.html",
       "icons/icon.png",
       "assets/**/*"
     ],
