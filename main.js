@@ -58,9 +58,7 @@ function createWindow() {
   });
 
   // User Agent para compatibilidad y evitar bloqueos
-  const ua =
-    "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36";
-  mainWindow.loadURL("https://pairdrop.net", { userAgent: ua });
+  loadMainPage();
 
   // Mostrar ventana cuando el contenido esté listo
   mainWindow.once("ready-to-show", () => {
@@ -95,7 +93,17 @@ function setupTray() {
   tray = new Tray(iconPath);
 
   const contextMenu = Menu.buildFromTemplate([
-    { label: "Abrir PairDrop", click: () => showWindow() },
+    { label: "Abrir PairDrop", click: () => {
+      loadMainPage();
+      showWindow();
+    }},
+    {
+      label: "Buscar Actualizaciones",
+      click: () => {
+        showWindow();
+        mainWindow.loadFile("updater.html");
+      },
+    },
     { type: "separator" },
     { label: "Salir", click: () => quitApp() },
   ]);
@@ -107,6 +115,7 @@ function setupTray() {
     if (mainWindow && mainWindow.isVisible()) {
       mainWindow.hide();
     } else {
+      loadMainPage();
       showWindow();
     }
   });
@@ -116,6 +125,14 @@ function showWindow() {
   if (mainWindow) {
     mainWindow.show();
     mainWindow.focus();
+  }
+}
+
+function loadMainPage() {
+  if (mainWindow) {
+    const ua =
+      "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36";
+    mainWindow.loadURL("https://pairdrop.net", { userAgent: ua });
   }
 }
 
@@ -190,11 +207,7 @@ ipcMain.handle("quit-and-install", () => {
   autoUpdater.quitAndInstall();
 });
 ipcMain.handle("go-home", () => {
-  if (mainWindow) {
-    const ua =
-      "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36";
-    mainWindow.loadURL("https://pairdrop.net", { userAgent: ua });
-  }
+  loadMainPage();
 });
 
 // AutoUpdater
@@ -202,33 +215,49 @@ function setupAutoUpdater() {
   if (!app.isPackaged) return;
 
   autoUpdater.autoDownload = false; // Permitir que el usuario decida cuándo descargar
+  autoUpdater.autoInstallOnAppQuit = true; // Instalar al salir si está descargada
 
   autoUpdater.on("checking-for-update", () => {
     log.info("Buscando actualizaciones...");
+    if (mainWindow) mainWindow.setTitle("PairDrop - Buscando actualizaciones...");
   });
 
   autoUpdater.on("update-available", (info) => {
     log.info("Actualización disponible:", info);
-    if (mainWindow) mainWindow.webContents.send("update-available", info);
+    if (mainWindow) {
+      mainWindow.setTitle("PairDrop - Actualización disponible");
+      mainWindow.webContents.send("update-available", info);
+    }
   });
 
   autoUpdater.on("update-not-available", (info) => {
     log.info("No hay actualizaciones disponibles.");
-    if (mainWindow) mainWindow.webContents.send("update-not-available", info);
+    if (mainWindow) {
+      mainWindow.setTitle("PairDrop - Última versión instalada");
+      mainWindow.webContents.send("update-not-available", info);
+    }
   });
 
   autoUpdater.on("error", (err) => {
     log.error("Error en auto-updater:", err);
-    if (mainWindow) mainWindow.webContents.send("update-error", err.message);
+    if (mainWindow) {
+      mainWindow.setTitle("PairDrop - Error buscando actualizaciones");
+      mainWindow.webContents.send("update-error", err.message);
+    }
   });
 
   autoUpdater.on("download-progress", (progressObj) => {
-    if (mainWindow)
+    if (mainWindow) {
+      mainWindow.setTitle(`PairDrop - Descargando ${Math.round(progressObj.percent)}%`);
       mainWindow.webContents.send("download-progress", progressObj);
+    }
   });
 
   autoUpdater.on("update-downloaded", (info) => {
     log.info("Actualización descargada.");
-    if (mainWindow) mainWindow.webContents.send("update-downloaded", info);
+    if (mainWindow) {
+      mainWindow.setTitle("PairDrop - Actualización lista para instalar");
+      mainWindow.webContents.send("update-downloaded", info);
+    }
   });
 }
