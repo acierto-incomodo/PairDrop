@@ -1,91 +1,193 @@
-const { app, BrowserWindow, Tray, Menu, shell } = require("electron");
+const { app, BrowserWindow, Tray, Menu, shell, ipcMain, dialog } = require("electron");
 const path = require("path");
-const Store = require("electron-store").default;
-const { version } = require("./package.json");
+const { autoUpdater } = require("electron-updater");
+const log = require("electron-log");
 
-const store = new Store();
+// Configuración de logs
+log.transports.file.level = "info";
+log.catchErrors();
+autoUpdater.logger = log;
 
-let tray = null;
 let mainWindow = null;
+let tray = null;
+
+// Evitar múltiples instancias
+const gotTheLock = app.requestSingleInstanceLock();
+
+if (!gotTheLock) {
+  app.quit();
+} else {
+  app.on("second-instance", () => {
+    // Si se intenta abrir una segunda instancia, enfocamos la existente
+    if (mainWindow) {
+      if (mainWindow.isMinimized()) mainWindow.restore();
+      if (!mainWindow.isVisible()) mainWindow.show();
+      mainWindow.focus();
+    }
+  });
+
+  app.whenReady().then(() => {
+    createWindow();
+    setupTray();
+    setupAutoUpdater();
+  });
+}
 
 function createWindow() {
-  // Recuperamos tamaño y posición guardada
-  const windowState = store.get("windowState") || { width: 1200, height: 800 };
-
-  const win = new BrowserWindow({
-    width: windowState.width,
-    height: windowState.height,
-    x: windowState.x,
-    y: windowState.y,
-    show: false,
+  mainWindow = new BrowserWindow({
+    width: 1200,
+    height: 800,
+    minWidth: 800,
+    minHeight: 600,
+    show: false, // Se mostrará cuando esté listo (ready-to-show)
+    icon: path.join(__dirname, "icons", "icon.png"),
     webPreferences: {
+      preload: path.join(__dirname, "preload.js"),
       nodeIntegration: false,
       contextIsolation: true,
-      preload: path.join(__dirname, "preload.js"),
-    },
-    icon: path.join(__dirname, "icons", "icon.png"),
+      sandbox: true
+    }
   });
 
-  // Guardar tamaño y posición al mover o redimensionar
-  win.on("close", () => {
-    store.set("windowState", win.getBounds());
+  // User Agent para compatibilidad y evitar bloqueos
+  const ua = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36";
+  mainWindow.loadURL("https://pairdrop.net", { userAgent: ua });
+
+  // Mostrar ventana cuando el contenido esté listo
+  mainWindow.once("ready-to-show", () => {
+    mainWindow.show();
   });
 
-  // User agent moderno para PairDrop APP
-  const ua =
-    "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120 Safari/537.36";
-  win.loadURL("https://pairdrop.net", { userAgent: ua });
-  mainWindow = win;
-
-  // Crear bandeja solo si no existe
-  if (!tray) {
-    tray = new Tray(path.join(__dirname, "icons", "icon.png"));
-    const contextMenu = Menu.buildFromTemplate([
-      { label: `PairDrop APP v${version}`, enabled: false },
-      { type: "separator" },
-      { label: "Mostrar PairDrop APP", click: () => mainWindow.show() },
-      {
-        label: "Información",
-        click: () =>
-          shell.openExternal("https://github.com/acierto-incomodo/StormStore"),
-      },
-      { label: "Salir", click: () => app.quit() },
-    ]);
-  }
-
-  tray.setToolTip("PairDrop APP");
-  tray.setContextMenu(contextMenu);
-
-  tray.on("click", () => mainWindow.show());
-
-  win.on("ready-to-show", () => win.hide());
-
-  // Ocultar ventana al cerrar
+  // Comportamiento al cerrar: minimizar al tray en lugar de salir
   mainWindow.on("close", (event) => {
     if (!app.isQuiting) {
       event.preventDefault();
       mainWindow.hide();
+      return false;
+    }
+  });
+
+  // Manejo de enlaces externos (abrir en navegador predeterminado)
+  mainWindow.webContents.setWindowOpenHandler(({ url }) => {
+    if (url.includes("pairdrop.net")) {
+      return { action: 'allow' };
+    }
+    shell.openExternal(url);
+    return { action: 'deny' };
+  });
+
+  createMenu();
+}
+
+function setupTray() {
+  if (tray) return;
+  
+  const iconPath = path.join(__dirname, "icons", "icon.png");
+  tray = new Tray(iconPath);
+  
+  const contextMenu = Menu.buildFromTemplate([
+    { label: "Abrir PairDrop", click: () => showWindow() },
+    { type: "separator" },
+    { label: "Salir", click: () => quitApp() }
+  ]);
+
+  tray.setToolTip("PairDrop");
+  tray.setContextMenu(contextMenu);
+
+  tray.on("click", () => {
+    if (mainWindow && mainWindow.isVisible()) {
+      mainWindow.hide();
+    } else {
+      showWindow();
     }
   });
 }
 
-app.whenReady().then(() => {
-  createWindow();
+function showWindow() {
+  if (mainWindow) {
+    mainWindow.show();
+    mainWindow.focus();
+  }
+}
 
-  app.on("activate", () => {
-    if (BrowserWindow.getAllWindows().length === 0) createWindow();
-  });
-
-  app.setLoginItemSettings({
-    openAtLogin: true,
-    path: process.execPath,
-  });
-});
-
-app.on("window-all-closed", () => {
-  /* no hacemos nada */
-});
-
-app.on("before-quit", () => {
+function quitApp() {
   app.isQuiting = true;
-});
+  app.quit();
+}
+
+function createMenu() {
+  const template = [
+    {
+      label: "Archivo",
+      submenu: [
+        { label: "Ocultar al Tray", click: () => mainWindow.hide() },
+        { label: "Salir", click: () => quitApp() }
+      ]
+    },
+    {
+      label: "Ver",
+      submenu: [
+        { role: "reload" },
+        { role: "forceReload" },
+        { role: "toggleDevTools" },
+        { type: "separator" },
+        { role: "resetZoom" },
+        { role: "zoomIn" },
+        { role: "zoomOut" },
+        { type: "separator" },
+        { role: "togglefullscreen" }
+      ]
+    },
+    {
+      label: "Ayuda",
+      submenu: [
+        {
+          label: "GitHub Repo",
+          click: () => shell.openExternal("https://github.com/acierto-incomodo/PairDrop")
+        },
+        {
+          label: "Acerca de",
+          click: () => {
+            dialog.showMessageBox(mainWindow, {
+              type: 'info',
+              title: 'PairDrop Desktop',
+              message: `Versión: ${app.getVersion()}`,
+              detail: 'Cliente de escritorio no oficial para pairprop.net'
+            });
+          }
+        }
+      ]
+    }
+  ];
+
+  const menu = Menu.buildFromTemplate(template);
+  Menu.setApplicationMenu(menu);
+}
+
+// IPC handlers
+ipcMain.handle("get-app-version", () => app.getVersion());
+
+// AutoUpdater
+function setupAutoUpdater() {
+  if (!app.isPackaged) return;
+
+  autoUpdater.on('update-available', () => {
+    log.info('Actualización disponible.');
+  });
+
+  autoUpdater.on('update-downloaded', () => {
+    log.info('Actualización descargada.');
+    dialog.showMessageBox(mainWindow, {
+      type: 'info',
+      title: 'Actualización lista',
+      message: 'Una nueva versión ha sido descargada. ¿Reiniciar e instalar ahora?',
+      buttons: ['Sí', 'Más tarde']
+    }).then((result) => {
+      if (result.response === 0) {
+        autoUpdater.quitAndInstall();
+      }
+    });
+  });
+
+  autoUpdater.checkForUpdatesAndNotify();
+}
